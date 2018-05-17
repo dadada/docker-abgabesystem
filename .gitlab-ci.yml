@@ -1,0 +1,39 @@
+image: docker:latest
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - release
+
+variables:
+  CONTAINER_TEST_TAG: $CI_REGISTRY/$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  CONTAINER_RELEASE_TAG: $CI_REGISTRY/$CI_REGISTRY_IMAGE:latest
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+
+build:
+  stage: build
+  tags:
+    - docker
+
+  script:
+    - docker build --pull -t $CONTAINER_TEST_TAG .
+    - docker push $CONTAINER_TEST_TAG
+
+test1:
+  stage: test
+  script:
+    - docker pull $CONTAINER_TEST_TAG
+    - docker run $CONTAINER_TEST_TAG ./jplag.sh
+
+release-image:
+  stage: release
+  script:
+    - docker pull $CONTAINER_TEST_TAG
+    - docker tag $CONTAINER_TEST_TAG $CONTAINER_RELEASE_TAG
+    - docker push $CONTAINER_RELEASE_TAG
+  only:
+    - master
